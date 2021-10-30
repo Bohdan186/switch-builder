@@ -12,6 +12,9 @@ namespace SwitchBuilder;
  */
 class SwitchBuilder {
 	private static $instance;
+	
+	private static $wpbakery  = 'js_composer/js_composer.php';
+	private static $elementor = 'elementor/elementor.php';
 
 	private function __construct() {
 		$this->init();
@@ -25,15 +28,34 @@ class SwitchBuilder {
 		return self::$instance;
 	}
 
+	private function get_active_builder() {
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			return '';
+		}
+
+		if ( is_plugin_active( self::$wpbakery ) ) {
+			return 'wpbakery';
+		}elseif ( is_plugin_active( self::$elementor ) ) {
+			return 'elementor';
+		}
+	}
+
 	public function init() {
+		include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
 		add_action( 'admin_enqueue_scripts', array( $this, 'add_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'add_scripts' ) );
+
+		add_action( 'wp_enqueue_scripts', array( $this, 'add_styles' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'add_scripts' ) );
+
 		add_action( 'admin_bar_menu', array( $this, 'render_button' ), 100 );
+
 		add_action( 'wp_ajax_switch-builder', array( $this, 'do_button_action' ) );
 	}
 
 	public function add_styles(){
-		wp_enqueue_style( 'switch-builder-button-styles', SWITCH_BUILDER_URL . 'assets/css/style.css', array(), '0.1' );
+		wp_enqueue_style( 'switch-builder-styles', SWITCH_BUILDER_URL . 'assets/css/style.css', array(), '0.1' );
 	}
 
 	public function add_scripts(){
@@ -43,26 +65,23 @@ class SwitchBuilder {
 	public function render_button( $wp_admin_bar ) {
 		$wp_admin_bar->add_node(
 			array(
-				'id'    => 'switch-builder-button',
+				'id'    => 'sb-button',
 				'title' => 'Switch Builder', 
 				'href'  =>  admin_url() . 'admin-ajax.php?action=switch-builder',
 				'meta'  => array(
-					'class' => 'switch-builder-button',
+					'class' => 'sb-button ' . $this->get_active_builder(),
 				),
 			)
 		);
 	}
 
 	public function do_button_action() {
-		$wpbakery  = 'js_composer/js_composer.php';
-		$elementor = 'elementor/elementor.php';
-
-		if ( is_plugin_active( $wpbakery ) ) {
-			deactivate_plugins( $wpbakery );
-			activate_plugin( $elementor );
-		}elseif ( is_plugin_active( $elementor ) ) {
-			deactivate_plugins( $elementor );
-			activate_plugin( $wpbakery );
+		if ( is_plugin_active( self::$wpbakery ) ) {
+			deactivate_plugins( self::$wpbakery );
+			activate_plugin( self::$elementor );
+		}elseif ( is_plugin_active( self::$elementor ) ) {
+			deactivate_plugins( self::$elementor );
+			activate_plugin( self::$wpbakery );
 		}
 
 		wp_die();
