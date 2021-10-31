@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	wp_die( '-1' );
 }
 
-require_once( 'classes/SwitchBuilder.php' );
+require_once 'classes/class-switchbuilder.php';
 
 use SwitchBuilder\SwitchBuilder;
 

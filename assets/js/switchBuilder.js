@@ -1,60 +1,98 @@
-jQuery(document).ready( function ($) {
+(function($) {
 	let ajaxurl = '/wp-admin/admin-ajax.php';
-	let $switchBuilderButton = $('.sb-button');
 
-	function getWillActivatedBuilder( $this ) {
-		if ( $this.hasClass('wpbakery') ) {
-			return 'ELEMENTOR';
-		}else if ( $this.hasClass('elementor') ) {
-			return 'WPBakery';
-		}else {
-			return false;
+	function updateBuilderData($this) {
+		let $sbButtonData  = $this.find('.sb-button-data');
+		let $activeBuilder = $sbButtonData.data('active-builder');
+
+		if ('wpbakery' === $activeBuilder) {
+			$sbButtonData.data('active-builder', 'elementor');
+		}else if ('elementor' === $activeBuilder) {
+			$sbButtonData.data('active-builder', 'wpbakery');
 		}
 	}
 
-	$switchBuilderButton.on( 'click', function( event ){
-		event.preventDefault();
-		$this = $(this);
-		$button = $this.find('a.ab-item');
+	function getMessage($this) {
+		let $sbMessage    = $this.find('.sb-message');
+		let $sbButtonData = $this.find('.sb-button-data');
 
-		$button.addClass('sb-loading');
+		let $activeBuilder = $sbButtonData.data('active-builder');
+		let $elExist       = $sbButtonData.data('el-exist');
+		let $wpbExist      = $sbButtonData.data('wpb-exist');
 
-		$.ajax({
-			url: ajaxurl,
-			method: 'post',
-			data: {
-				action: 'switch-builder',
-			},
-			success: function() {
-				let message = '';
+		if ('wpbakery' === $activeBuilder) {
+			if (! $elExist) {
+				$sbMessage.append('You need installed ELEMENTOR');
+				return;
+			}
 
-				$button.removeClass('sb-loading');
+			$sbMessage.append('ELEMENTOR activated');
+		}else if ('elementor' === $activeBuilder) {
+			if (! $wpbExist) {
+				$sbMessage.append('You need installed WPBakery');
+				return;
+			}
 
-				if ( false !== getWillActivatedBuilder($this) ) {
-					message = `<span class="sb-activeBuilder">${getWillActivatedBuilder( $this )}</span> activated !`;
-				} else {
-					message = 'Switched';
+			$sbMessage.append('WPBakery activated');
+		}else if ( $elExist && ! $wpbExist ) {
+			$sbMessage.append('ELEMENTOR activated');
+		}else if ( $wpbExist && ! $elExist ) {
+			$sbMessage.append('WPBakery activated');
+		}else if ( $wpbExist && $elExist ) {
+			$sbMessage.append('Activate the builder yourself');
+		}else {
+			$sbMessage.append('Please install builders');
+		}
+
+		getAnimation($sbMessage);
+	}
+
+	function getAnimation($obj){
+		$obj.animate({
+			top: '100%',
+			opacity: "100%",
+		}, 1000);
+			
+		setTimeout(function() {
+			$obj.remove();
+		}, 4000);
+	}
+
+	function switchBuilder($sbButton) {
+		$sbButton.on( 'click', function( event ){
+			event.preventDefault();
+
+			let $this   = $(this);
+			let $button = $this.find('a.ab-item');
+	
+			$button.addClass('sb-loading');
+	
+			$.ajax({
+				url: ajaxurl,
+				method: 'post',
+				data: {
+					action: 'switch-builder',
+				},
+				beforeSend: function() {
+					$this.append('<p class="sb-message"></p>');
+				},
+				success: function() {
+					getMessage($this);
+					updateBuilderData($this);
+				},
+				error: function() {
+					let $sbMessage = $this.find('.sb-message').append('<span class="sb-error">Bad Request !</span>');
+
+					getAnimation($sbMessage);
+				},
+				complete: function() {
+					$button.removeClass('sb-loading');
 				}
-
-				$this.append(`<p class="sb-message">${message}</p>`)
-
-				$this.find('.sb-message').animate({
-					marginLeft: "100%",
-					opacity: "100%",
-				}, 1000);
-					
-				setTimeout(function() {
-					$('.sb-message').remove();
-				}, 2000);
-
-				if ( $this.hasClass('wpbakery') ) {
-					$this.removeClass('wpbakery');
-					$this.addClass('elementor');
-				} else if ( $this.hasClass('elementor') ) {
-					$this.removeClass('elementor');
-					$this.addClass('wpbakery');
-				}
-			},
+			});
 		});
+	}
+
+	$(document).ready(function() {
+		switchBuilder($('.sb-button'));
 	});
-});
+})(jQuery);

@@ -1,12 +1,9 @@
-.sb-button {
-	display: flex;
-}
-
 .sb-message {
 	position: absolute !important;
-	width: 140px !important;
+	top: 0;
+	width: 180px !important;
 	opacity: 0;
-	
+	background-color: #384a57;
     padding-top: 0 !important;
     padding-right: 8px !important;
     padding-bottom: 0 !important;
@@ -20,7 +17,7 @@
     padding: 0px !important;
 }
 
-.sb-activeBuilder {
+.sb-error {
 	font-weight: 500 !important;
-	color: #2271b1;
+	color: #da7676;
 }
