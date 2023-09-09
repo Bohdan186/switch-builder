@@ -7,6 +7,8 @@
 
 namespace SwitchBuilder;
 
+use WP_Admin_Bar;
+
 /**
  * This class creates a toggle button builders.
  */
@@ -56,89 +58,158 @@ class SwitchBuilder {
 	public function init() {
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';
 
-		add_action( 'admin_enqueue_scripts', array( $this, 'add_styles' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'add_styles' ) );
-
-		add_action( 'admin_enqueue_scripts', array( $this, 'add_scripts' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'add_scripts' ) );
-
 		add_action( 'admin_bar_menu', array( $this, 'render_button' ), 40 );
-
-		add_action( 'wp_ajax_switch-builder', array( $this, 'do_button_action' ) );
-	}
-
-	/**
-	 * Attaches style files.
-	 */
-	public function add_styles() {
-		wp_enqueue_style( 'switch-builder-styles', SWITCH_BUILDER_URL . 'assets/css/style.css', array(), '0.1' );
-	}
-
-	/**
-	 * Attaches script files.
-	 */
-	public function add_scripts() {
-		wp_enqueue_script( 'switchBuilder', SWITCH_BUILDER_URL . 'assets/js/switchBuilder.js', array( 'jquery' ), '0.1', true );
+		add_action( 'init', array( $this, 'do_button_action' ) );
 	}
 
 	/**
 	 * Added Switch Builder button to WP Admin Bar.
 	 *
-	 * @param object $wp_admin_bar instance WP_Admin_Bar class. Comes with admin_bar_menu hook.
+	 * @param WP_Admin_Bar $wp_admin_bar instance WP_Admin_Bar class. Comes with admin_bar_menu hook.
 	 */
 	public function render_button( $wp_admin_bar ) {
+		$builder_data = $this->get_active_builder();
+
 		$wp_admin_bar->add_node(
 			array(
 				'id'    => 'sb-button',
 				'title' => 'Switch Builder',
-				'href'  => admin_url() . 'admin-ajax.php?action=switch-builder',
+				'href'  => esc_url(
+					add_query_arg(
+						array(
+							'sb-nonce' => wp_create_nonce( 'switch_builder_nonce' ),
+						),
+						admin_url()
+					)
+				),
 				'meta'  => array(
 					'class' => 'sb-button',
-					'html'  => '<input class="sb-button-data" type="hidden" data-active-builder="' . $this->get_active_builder() . '" data-el-exist="' . $this->check_plugin_installed( self::$elementor ) . '" data-wpb-exist="' . $this->check_plugin_installed( self::$wpbakery ) . '">',
 				),
 			)
 		);
+
+		if ( ! empty( $builder_data ) ) {
+			foreach ( $builder_data as $node_data ) {
+				$wp_admin_bar->add_node(
+					array(
+						'parent' => 'sb-button',
+						'id'     => $node_data['id'],
+						'title'  => $node_data['title'],
+						'href'   => $node_data['href'],
+					)
+				);
+			}
+		}
 	}
 
 	/**
 	 * The method that is executed after the button is pressed. It will check which builder is active now, and switch it to another.
 	 */
 	public function do_button_action() {
+		if ( ! isset( $_GET['sb-nonce'] ) || ! wp_verify_nonce( $_GET['sb-nonce'], 'switch_builder_nonce' ) ) { // phpcs:ignore.
+			return;
+		}
+
 		$el_exist  = $this->check_plugin_installed( self::$elementor );
 		$wpb_exist = $this->check_plugin_installed( self::$wpbakery );
 
-		if ( is_plugin_active( self::$wpbakery ) && $el_exist ) {
-			deactivate_plugins( self::$wpbakery );
-			activate_plugin( self::$elementor );
-		} elseif ( is_plugin_active( self::$elementor ) && $wpb_exist ) {
-			deactivate_plugins( self::$elementor );
-			activate_plugin( self::$wpbakery );
-		} elseif ( $el_exist && ! $wpb_exist ) {
-			activate_plugin( self::$elementor );
-		} elseif ( $wpb_exist && ! $el_exist ) {
-			activate_plugin( self::$wpbakery );
+		if ( ! empty( $_GET['sb-activate'] ) ) {
+			switch ( $_GET['sb-activate'] ) {
+				case 'elementor':
+					activate_plugin( self::$elementor );
+					break;
+				case 'wpbakery':
+					activate_plugin( self::$wpbakery );
+					break;
+			}
+		} else {
+			if ( is_plugin_active( self::$wpbakery ) && $el_exist ) {
+				deactivate_plugins( self::$wpbakery );
+				activate_plugin( self::$elementor );
+			} elseif ( is_plugin_active( self::$elementor ) && $wpb_exist ) {
+				deactivate_plugins( self::$elementor );
+				activate_plugin( self::$wpbakery );
+			} elseif ( $el_exist && ! $wpb_exist ) {
+				activate_plugin( self::$elementor );
+			} elseif ( $wpb_exist && ! $el_exist ) {
+				activate_plugin( self::$wpbakery );
+			}
 		}
 
-		wp_die();
+		wp_safe_redirect(
+			remove_query_arg(
+				array(
+					'sb-nonce',
+					'sb-activate',
+				),
+				admin_url()
+			)
+		);
 	}
 
 	/**
 	 * Helper private method, get active builder.
 	 *
-	 * @return string name active builder.
+	 * @return array Active builder data.
 	 */
 	private function get_active_builder() {
+		$builder_data = array();
+
 		if ( ! function_exists( 'is_plugin_active' ) ) {
-			return '';
+			return $builder_data;
 		}
+
+		$el_exist  = $this->check_plugin_installed( self::$elementor );
+		$wpb_exist = $this->check_plugin_installed( self::$wpbakery );
 
 		if ( is_plugin_active( self::$wpbakery ) ) {
-			return 'wpbakery';
+			$builder_data[] = array(
+				'id'    => 'sb-wpb-setting',
+				'title' => 'WPBakery Settings',
+				'href'  => esc_url( admin_url( 'admin.php?page=vc-general' ) ),
+			);
 		} elseif ( is_plugin_active( self::$elementor ) ) {
-			return 'elementor';
-		}
-	}
+			$builder_data[] = array(
+				'id'    => 'sb-el-setting',
+				'title' => 'Elementor Settings',
+				'href'  => esc_url( admin_url( 'admin.php?page=elementor' ) ),
+			);
+		} else {
+			if ( $wpb_exist ) {
+				$builder_data[] = array(
+					'id'    => 'sb-wpb-activate',
+					'title' => 'Activate WPBakery',
+					'href'  => esc_url(
+						add_query_arg(
+							array(
+								'sb-nonce'    => wp_create_nonce( 'switch_builder_nonce' ),
+								'sb-activate' => 'wpbakery',
+							),
+							admin_url()
+						)
+					),
+				);
+			}
 
+			if ( $el_exist ) {
+				$builder_data[] = array(
+					'id'    => 'sb-el-activate',
+					'title' => 'Activate Elementor',
+					'href'  => esc_url(
+						add_query_arg(
+							array(
+								'sb-nonce'    => wp_create_nonce( 'switch_builder_nonce' ),
+								'sb-activate' => 'elementor',
+							),
+							admin_url()
+						)
+					),
+				);
+			}
+		}
+
+		return $builder_data;
+	}
 
 	/**
 	 * Check if plugin is installed by getting all plugins from the plugins dir.
