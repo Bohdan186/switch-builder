@@ -63,42 +63,66 @@ class SwitchBuilder {
 	}
 
 	/**
+	 * Enqueue styles for the plugin.
+	 */
+	public function enqueue_styles() {
+		if ( is_admin_bar_showing() ) {
+			wp_enqueue_style(
+				'switch-builder-styles',
+				SWITCH_BUILDER_URL . 'assets/switch-builder.css',
+				array(),
+				'0.1'
+			);
+		}
+	}
+
+	/**
 	 * Added Switch Builder button to WP Admin Bar.
 	 *
 	 * @param WP_Admin_Bar $wp_admin_bar instance WP_Admin_Bar class. Comes with admin_bar_menu hook.
 	 */
 	public function render_button( $wp_admin_bar ) {
-		$builder_data = $this->get_active_builder();
-
 		$wp_admin_bar->add_node(
 			array(
 				'id'    => 'sb-button',
 				'title' => 'Switch Builder',
-				'href'  => esc_url(
-					add_query_arg(
-						array(
-							'sb-nonce' => wp_create_nonce( 'switch_builder_nonce' ),
-						),
-						admin_url()
-					)
-				),
 				'meta'  => array(
 					'class' => 'sb-button',
 				),
 			)
 		);
 
-		if ( ! empty( $builder_data ) ) {
-			foreach ( $builder_data as $node_data ) {
-				$wp_admin_bar->add_node(
-					array(
-						'parent' => 'sb-button',
-						'id'     => $node_data['id'],
-						'title'  => $node_data['title'],
-						'href'   => $node_data['href'],
-					)
-				);
+		$builders = $this->get_builders_status();
+
+		foreach ( $builders as $builder_key => $builder_data ) {
+			if ( ! $builder_data['installed'] ) {
+				continue;
 			}
+
+			$status = $builder_data['active'] ? 'On' : 'Off';
+			$title  = $builder_data['name'] . ' (' . $status . ')';
+
+			$href = $builder_data['active'] ? '#' : esc_url(
+				add_query_arg(
+					array(
+						'sb-nonce'    => wp_create_nonce( 'switch_builder_nonce' ),
+						'sb-activate' => $builder_key,
+					),
+					admin_url()
+				)
+			);
+
+			$wp_admin_bar->add_node(
+				array(
+					'parent' => 'sb-button',
+					'id'     => 'sb-' . $builder_key,
+					'title'  => $title,
+					'href'   => $href,
+					'meta'   => array(
+						'class' => $builder_data['active'] ? 'sb-active' : 'sb-inactive',
+					),
+				)
+			);
 		}
 	}
 
@@ -110,29 +134,27 @@ class SwitchBuilder {
 			return;
 		}
 
-		$el_exist  = $this->check_plugin_installed( self::$elementor );
-		$wpb_exist = $this->check_plugin_installed( self::$wpbakery );
-
 		if ( ! empty( $_GET['sb-activate'] ) ) {
-			switch ( $_GET['sb-activate'] ) {
+			$builder_to_activate = sanitize_text_field( wp_unslash( $_GET['sb-activate'] ) );
+
+			$this->deactivate_all_builders();
+
+			$this->disable_gutenberg_settings();
+
+			switch ( $builder_to_activate ) {
 				case 'elementor':
-					activate_plugin( self::$elementor );
+					if ( $this->check_plugin_installed( self::$elementor ) ) {
+						activate_plugin( self::$elementor );
+					}
 					break;
 				case 'wpbakery':
-					activate_plugin( self::$wpbakery );
+					if ( $this->check_plugin_installed( self::$wpbakery ) ) {
+						activate_plugin( self::$wpbakery );
+					}
 					break;
-			}
-		} else {
-			if ( is_plugin_active( self::$wpbakery ) && $el_exist ) {
-				deactivate_plugins( self::$wpbakery );
-				activate_plugin( self::$elementor );
-			} elseif ( is_plugin_active( self::$elementor ) && $wpb_exist ) {
-				deactivate_plugins( self::$elementor );
-				activate_plugin( self::$wpbakery );
-			} elseif ( $el_exist && ! $wpb_exist ) {
-				activate_plugin( self::$elementor );
-			} elseif ( $wpb_exist && ! $el_exist ) {
-				activate_plugin( self::$wpbakery );
+				case 'gutenberg':
+					$this->enable_gutenberg_settings();
+					break;
 			}
 		}
 
@@ -144,6 +166,89 @@ class SwitchBuilder {
 				),
 				admin_url()
 			)
+		);
+	}
+
+	/**
+	 * Enable Gutenberg settings in Woodmart theme options.
+	 */
+	public function enable_gutenberg_settings() {
+		$options = get_option( 'xts-woodmart-options', array() );
+
+		$options['current_builder']               = 'native';
+		$options['gutenberg_blocks']              = '1';
+		$options['enable_gutenberg_for_products'] = '1';
+
+		update_option( 'xts-woodmart-options', $options );
+
+		$this->clear_theme_cache();
+
+		$GLOBALS['xts_woodmart_options']['current_builder']               = 'native';
+		$GLOBALS['xts_woodmart_options']['gutenberg_blocks']              = '1';
+		$GLOBALS['xts_woodmart_options']['enable_gutenberg_for_products'] = '1';
+	}
+
+	/**
+	 * Disable Gutenberg settings in Woodmart theme options.
+	 */
+	public function disable_gutenberg_settings() {
+		$options = get_option( 'xts-woodmart-options', array() );
+
+		$options['current_builder']               = 'external';
+		$options['gutenberg_blocks']              = '0';
+		$options['enable_gutenberg_for_products'] = '0';
+
+		update_option( 'xts-woodmart-options', $options );
+
+		$this->clear_theme_cache();
+
+		$GLOBALS['xts_woodmart_options']['current_builder']               = 'external';
+		$GLOBALS['xts_woodmart_options']['gutenberg_blocks']              = '0';
+		$GLOBALS['xts_woodmart_options']['enable_gutenberg_for_products'] = '0';
+	}
+
+	/**
+	 * Clear theme cache if needed.
+	 */
+	private function clear_theme_cache() {
+		if ( function_exists( 'woodmart_clear_custom_css' ) ) {
+			woodmart_clear_custom_css();
+		}
+
+		if ( function_exists( 'wp_cache_flush' ) ) {
+			wp_cache_flush();
+		}
+
+		delete_transient( 'woodmart_custom_css' );
+		delete_transient( 'woodmart_settings_cache' );
+	}
+
+	/**
+	 * Get status of all builders.
+	 *
+	 * @return array Builders status data.
+	 */
+	private function get_builders_status() {
+		$wpb_active       = is_plugin_active( self::$wpbakery );
+		$el_active        = is_plugin_active( self::$elementor );
+		$gutenberg_active = ! $wpb_active && ! $el_active;
+
+		return array(
+			'wpbakery'  => array(
+				'name'      => 'WPBakery',
+				'active'    => $wpb_active,
+				'installed' => $this->check_plugin_installed( self::$wpbakery ),
+			),
+			'elementor' => array(
+				'name'      => 'Elementor',
+				'active'    => $el_active,
+				'installed' => $this->check_plugin_installed( self::$elementor ),
+			),
+			'gutenberg' => array(
+				'name'      => 'Gutenberg',
+				'active'    => $gutenberg_active,
+				'installed' => true,
+			),
 		);
 	}
 
@@ -209,6 +314,18 @@ class SwitchBuilder {
 		}
 
 		return $builder_data;
+	}
+
+	/**
+	 * Deactivate all builders.
+	 */
+	private function deactivate_all_builders() {
+		if ( is_plugin_active( self::$wpbakery ) ) {
+			deactivate_plugins( self::$wpbakery );
+		}
+		if ( is_plugin_active( self::$elementor ) ) {
+			deactivate_plugins( self::$elementor );
+		}
 	}
 
 	/**
