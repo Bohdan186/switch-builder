@@ -17,7 +17,7 @@ require_once 'classes/class-switchbuilder.php';
 use SwitchBuilder\SwitchBuilder;
 
 if ( ! defined( 'SWITCH_BUILDER_URL' ) ) {
-	define( 'SWITCH_BUILDER_URL', plugin_dir_url( plugin_basename( __FILE__ ) ) );
+	define( 'SWITCH_BUILDER_URL', plugin_dir_url( __FILE__ ) );
 }
 
 SwitchBuilder::get_instance();

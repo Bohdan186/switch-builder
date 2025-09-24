@@ -1,0 +1,88 @@
+/*
+Switch Builder - Admin Bar Styles
+Version: 0.2
+*/
+
+/* Root button in the admin bar */
+#wpadminbar #wp-admin-bar-sb-button > .ab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+/* Submenu base styles */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu .ab-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Add status badge via ::after; include leading dot inside the pill */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item::after {
+  content: '\25CF ' attr(data-sb-status);
+  margin-left: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.6;
+  background: rgba(99, 110, 123, 0.35);
+  color: #e6edf3;
+}
+
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item.sb-active::after,
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li.sb-active > .ab-item::after {
+  content: '\25CF  On';
+  background: rgba(123, 220, 181, 0.25); /* світлий фон mint */
+  color: #e6fff5; /* дуже світлий mint кружок */
+  min-width: 30px;
+  text-align: center;
+  display: inline-block;
+}
+
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item.sb-inactive::after,
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li.sb-inactive > .ab-item::after {
+  content: '\25CF  Off';
+  background: rgba(180, 190, 210, 0.22); /* світліший фон */
+  color: #b4bed2; /* світліший кружок */
+  min-width: 30px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Move visual indicator circle into the badge; hide left-side dot */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item::before {
+  display: none !important;
+}
+
+/* Hover styles */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item:hover {
+  color: #fff;
+  filter: brightness(1.05);
+}
+
+/* Compact spacing in submenu */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu li {
+  padding-right: 8px;
+}
+
+/* Optional: subtle separator on submenu */
+#wpadminbar #wp-admin-bar-sb-button .ab-submenu {
+  min-width: 220px;
+}
+
+/* Reduce motion for those who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  #wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item,
+  #wpadminbar #wp-admin-bar-sb-button > .ab-item {
+    transition: none !important;
+  }
+}
+
+/* RTL support: flip paddings/margins where needed */
+html[dir='rtl'] #wpadminbar #wp-admin-bar-sb-button .ab-submenu li > .ab-item::after {
+  margin-right: 12px;
+  margin-left: 0;
+}

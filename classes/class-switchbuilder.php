@@ -60,6 +60,9 @@ class SwitchBuilder {
 
 		add_action( 'admin_bar_menu', array( $this, 'render_button' ), 40 );
 		add_action( 'init', array( $this, 'do_button_action' ) );
+		// Enqueue styles when admin bar is visible on both frontend and admin.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_styles' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 	}
 
 	/**
@@ -99,8 +102,8 @@ class SwitchBuilder {
 				continue;
 			}
 
-			$status = $builder_data['active'] ? 'On' : 'Off';
-			$title  = $builder_data['name'] . ' (' . $status . ')';
+			// Only show clean builder name; visual On/Off badge is added via CSS by class.
+			$title = $builder_data['name'];
 
 			$href = $builder_data['active'] ? '#' : esc_url(
 				add_query_arg(
