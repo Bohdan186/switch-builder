@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Switch Builder
  * Description: Switch Builder plugin.
- * Version: 0.1
+ * Version: 2.0
  * Domain: switch_builder
  *
  * @package Switch Builder
